@@ -40,18 +40,31 @@ export const signup = async (req, res) => {
   }
 };
 
-export const login = (req, res) => {
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (user && (await bcrypt.compare(password, user.password))) {
+      generateToken(user._id, res);
+      res.status(200).json({ message: "Login successful" });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
+    }
   } catch (error) {
     console.error("Error during login:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const logout = (req, res) => {
+export const logout = async (req, res) => {
   try {
-    // Logout logic here
+    res.clearCookie("jwt", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: "strict",
+      maxAge: 0,
+    });
+    res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Error during logout:", error);
     res.status(500).json({ message: "Internal server error" });
