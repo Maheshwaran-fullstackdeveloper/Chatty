@@ -3,6 +3,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 dotenv.config();
 import { connectDB } from "./src/lib/db.js";
+import cors from "cors";
 import authRoutes from "./src/routes/auth.route.js";
 import messageRoutes from "./src/routes/message.route.js";
 
@@ -11,6 +12,14 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Frontend URL
+    credentials: true, // Allow cookies to be sent
+  }),
+);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/message", messageRoutes);
 
