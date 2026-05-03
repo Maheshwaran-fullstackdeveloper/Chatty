@@ -5,16 +5,16 @@ import { generateToken } from "../lib/utils.js";
 export const signup = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
+    if (!fullName || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
     if (password.length < 6) {
       return res
         .status(400)
         .json({ message: "Password must be at least 6 characters long" });
     }
-    if (!email.includes("@")) {
-      return res.status(400).json({ message: "Invalid email address" });
-    }
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
     }
     const user = await User.findOne({ email });
     if (user) {
