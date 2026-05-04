@@ -3,6 +3,17 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/utils.js";
 import cloudinary from "../lib/cloudinary.js";
 
+const sendUserResponse = (res, statusCode, user) => {
+  res.status(statusCode).json({
+    _id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    profilePic: user.profilePic,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  });
+};
+
 export const signup = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
@@ -30,8 +41,7 @@ export const signup = async (req, res) => {
     });
     if (newUser) {
       generateToken(newUser._id, res);
-      await newUser.save();
-      res.status(201).json({ message: "User created successfully" });
+      sendUserResponse(res, 201, newUser);
     } else {
       res.status(400).json({ message: "Failed to create user" });
     }
@@ -47,7 +57,7 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (user && (await bcrypt.compare(password, user.password))) {
       generateToken(user._id, res);
-      res.status(200).json({ message: "Login successful" });
+      sendUserResponse(res, 200, user);
     } else {
       res.status(401).json({ message: "Invalid email or password" });
     }
@@ -86,8 +96,8 @@ export const updateProfile = async (req, res) => {
       userId,
       { profilePic: uploadResponse.secure_url },
       { new: true },
-    );
-    res.status(200).json({ message: "Profile picture updated successfully" });
+    ).select("-password");
+    res.status(200).json(updatedUser);
   } catch (error) {
     console.error("Error during profile picture update:", error);
     res.status(500).json({ message: "Internal server error" });
