@@ -1,19 +1,26 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import { toast } from "react-hot-toast";
+import { io } from "socket.io-client";
+import { useChatStore } from "./useChatStore";
 
-export const useAuthStore = create((set) => ({
+const BASE_URL =
+  import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+
+export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
   isLoggingIn: false,
   isUpdatingProfile: false,
   isCheckingAuth: true,
   onlineUsers: [],
+  socket: null,
 
   checkAuth: async () => {
     try {
       const res = await axiosInstance.get("/auth/check");
       set({ authUser: res.data });
+      get().connectSocket();
     } catch (error) {
       console.error("Error checking auth status:", error);
     } finally {
@@ -27,6 +34,7 @@ export const useAuthStore = create((set) => ({
       const res = await axiosInstance.post("/auth/signup", data);
       set({ authUser: res.data });
       toast.success("Account created successfully");
+      get().connectSocket();
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {
@@ -40,6 +48,7 @@ export const useAuthStore = create((set) => ({
       const res = await axiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
       toast.success("Logged in successfully");
+      get().connectSocket();
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {
@@ -50,7 +59,9 @@ export const useAuthStore = create((set) => ({
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
-      set({ authUser: null });
+      useChatStore.getState().resetChat();
+      get().disconnectSocket();
+      set({ authUser: null, onlineUsers: [] });
       toast.success("Logged out successfully");
     } catch (error) {
       toast.error(error.response.data.message);
@@ -69,5 +80,34 @@ export const useAuthStore = create((set) => ({
     } finally {
       set({ isUpdatingProfile: false });
     }
+  },
+
+  connectSocket: () => {
+    const { authUser } = get();
+    const existingSocket = get().socket;
+
+    if (!authUser) return;
+    if (existingSocket?.authUserId === authUser._id) return;
+    if (existingSocket) existingSocket.disconnect();
+
+    const socket = io(BASE_URL, {
+      query: {
+        userId: authUser._id,
+      },
+    });
+    socket.connect();
+
+    socket.authUserId = authUser._id;
+    set({ socket });
+
+    socket.on("getOnlineUsers", (userIds) => {
+      set({ onlineUsers: userIds });
+    });
+  },
+  disconnectSocket: () => {
+    const socket = get().socket;
+    socket?.removeAllListeners();
+    socket?.disconnect();
+    set({ socket: null, onlineUsers: [] });
   },
 }));
